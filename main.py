@@ -60,17 +60,20 @@ def test_sample(model, batches, save_paths, epoch):
 ##########################
 
 def dummy_args(args):
-    args.capacity = 1000
-    args.data_root = '../../stargan/dataset/Potato_mask'
+    args.capacity = 150
+    #args.data_root = '../../stargan/dataset/Potato_mask'
+    args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/Apple_Healthy2Rust'
+    args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/leaf_normal'
+    args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/leaf_potato'
     args.n_sample = 5
     args.img_size = 224
     args.g_downsampling = 3
     args.g_bottleneck = 6
     args.in_memory = True
 
-    args.save_name = 'Potato_mydis2'
+    #args.save_name = 'Potato_mydis2'
     args.d_type = 'my'
-    args.g_tanh = False
+    #args.g_tanh = False
 
     #args.load_name = '3_model'
 

@@ -304,25 +304,32 @@ class Generator(nn.Module):
         return x
 
 class Discriminator(nn.Module):
-    def __init__(self, input_nc=3, img_size=256, num_domains=2, max_conv_dim=512, attention=False):
+    def __init__(self, input_nc=3, img_size=256, num_domains=2, max_conv_dim=512, attention=False, patch_gan=False):
         super().__init__()
-        dim_in = 2**14 // img_size
+        #dim_in = 2**14 // img_size
+        dim_in = 64
         blocks = []
         blocks += [nn.utils.spectral_norm(nn.Conv2d(input_nc, dim_in, 3, 1, 1))]
 
-        repeat_num = int(np.log2(img_size)) - 2
+        repeat_num = 3 if patch_gan else (int(np.log2(img_size)) - 2)
         for _ in range(repeat_num):
             dim_out = min(dim_in*2, max_conv_dim)
             blocks += [ResBlkSN(dim_in, dim_out, downsample=True, attention=attention, affine=False, normalize=False)]
             dim_in = dim_out
 
-        blocks += [
-                nn.LeakyReLU(0.2),
-                nn.utils.spectral_norm(nn.Conv2d(dim_out, dim_out, 3, 1, 0)),
-                nn.LeakyReLU(0.2),
-                nn.utils.spectral_norm(nn.Conv2d(dim_out, num_domains, 1, 1, 0))
-            ]
-            
+        if patch_gan:
+            blocks += [
+                    nn.LeakyReLU(0.2),
+                    nn.utils.spectral_norm(nn.Conv2d(dim_out, 1, 4, 1, 1)),
+                ]
+        else:    
+            blocks += [
+                    nn.LeakyReLU(0.2),
+                    nn.utils.spectral_norm(nn.Conv2d(dim_out, dim_out, 3, 1, 0)),
+                    nn.LeakyReLU(0.2),
+                    nn.utils.spectral_norm(nn.Conv2d(dim_out, num_domains, 1, 1, 0))
+                ]
+
         self.main = nn.Sequential(*blocks)
 
     def forward(self, x):
@@ -344,7 +351,7 @@ class ResnetBlock(nn.Module):
         """
         super(ResnetBlock, self).__init__()
         self.conv_block = self.build_conv_block(dim, padding_type, norm_layer, use_dropout, use_bias)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.LeakyReLU(0.2)
         self.cbam = CBAM(dim, 4, no_spatial=False)
 
     def build_conv_block(self, dim, padding_type, norm_layer, use_dropout, use_bias):
@@ -370,7 +377,7 @@ class ResnetBlock(nn.Module):
         else:
             raise NotImplementedError('padding [%s] is not implemented' % padding_type)
 
-        conv_block += [nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias), norm_layer(dim), nn.ReLU()]
+        conv_block += [nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias), nn.LeakyReLU(0.2)]
         if use_dropout:
             conv_block += [nn.Dropout(0.5)]
 
@@ -390,6 +397,7 @@ class ResnetBlock(nn.Module):
     def forward(self, x):
         """Forward function (with skip connections)"""        
         out = x + self.cbam(self.conv_block(x))  # add skip connections
+        self.relu(out)
         return out
 
 class ResnetGenerator(nn.Module):
@@ -532,6 +540,41 @@ class ResnetGenerator_bang2(nn.Module):
         x = self.to_rgb(x)
         return x
 
+class Discriminator_bang(nn.Module):
+    def __init__(self, input_nc=3, img_size=256, num_domains=2, max_conv_dim=512, attention=False):
+        super().__init__()
+        dim_in = 64
+        blocks = []
+        blocks += [nn.utils.spectral_norm(nn.Conv2d(input_nc, dim_in, 4, 2, 1)), ]
+
+        repeat_num = 3
+        for _ in range(1, repeat_num):
+            dim_out = min(dim_in*2, max_conv_dim)
+            #blocks += [ResBlkSN(dim_in, dim_out, downsample=True, attention=attention, affine=False, normalize=False)]
+            blocks += [ 
+                nn.LeakyReLU(0.2),
+                nn.utils.spectral_norm(nn.Conv2d(dim_in, dim_out, kernel_size=4, stride=2, padding=1))
+            ]
+            dim_in = dim_out
+
+        for _ in range(3):
+            blocks += [
+                ResBlkSN(dim_out, dim_out, normalize=False, attention=attention, affine=False)
+            ]
+
+        blocks += [
+                    nn.LeakyReLU(0.2),
+                    nn.utils.spectral_norm(nn.Conv2d(dim_out, dim_out*2, 4, 1, 1)),
+                    nn.LeakyReLU(0.2),
+                    nn.utils.spectral_norm(nn.Conv2d(dim_out*2, 1, 4, 1, 1)),                    
+                ]
+
+        self.main = nn.Sequential(*blocks)
+
+    def forward(self, x):
+        out = self.main(x)
+        return out
+
 class NLayerDiscriminatorSpec(nn.Module):
     """Defines a PatchGAN discriminator"""
 
@@ -584,8 +627,9 @@ class NLayerDiscriminatorSpec(nn.Module):
 if __name__ == '__main__':
     #g = Generator().cuda()
     #d = NLayerDiscriminatorSpec(3)
-    d = Discriminator(patch_gan=True)
+    #d = Discriminator(patch_gan=True)
+    d = Discriminator_bang()
     #g = ResnetGenerator_bang2(3, 3)
     
     from torchinfo import summary
-    summary(d, (1, 3, 256, 256))
+    summary(d, (1, 3, 224, 224))

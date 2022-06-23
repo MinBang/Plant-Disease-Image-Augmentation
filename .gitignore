@@ -7,6 +7,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+## My
+*.txt
+checkpoints/
+
 # C extensions
 *.so
 
