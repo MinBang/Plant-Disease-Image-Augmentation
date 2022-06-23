@@ -8,7 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 
 from .utils import init_func, WarmupConstantSchedule
-from .networks import *
+#from .networks import *
+from .networks_bang import *
 
 class ReplayBuffer():
     def __init__(self, max_size=50):
@@ -64,19 +65,14 @@ class CycleGAN:
 
     def build_model(self, args):
         nets = Munch()
-        nets.G_A2B = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_bottleneck=args.g_bottleneck, n_downsampling=args.g_downsampling, affine=False, last_tanh=args.g_tanh), init_func)
-        nets.G_B2A = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_bottleneck=args.g_bottleneck, n_downsampling=args.g_downsampling, affine=False, last_tanh=args.g_tanh), init_func)
+        #nets.G_A2B = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_bottleneck=args.g_bottleneck, n_downsampling=args.g_downsampling, affine=False, last_tanh=args.g_tanh), init_func)
+        #nets.G_B2A = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_bottleneck=args.g_bottleneck, n_downsampling=args.g_downsampling, affine=False, last_tanh=args.g_tanh), init_func)
+
+        nets.G_A2B = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_downsampling=args.g_downsampling, n_blocks=args.g_bottleneck), init_func)
+        nets.G_B2A = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_downsampling=args.g_downsampling, n_blocks=args.g_bottleneck), init_func)
         
-        if args.d_type == 'patch_normal':
-            print('NLayerDiscriminatorSpec')
-            nets.D_A = self.define_network(NLayerDiscriminatorSpec(args.input_nc*2), init_func)
-            nets.D_B = self.define_network(NLayerDiscriminatorSpec(args.input_nc*2), init_func)
-        elif args.d_type == 'stargan':
-            nets.D_A = self.define_network(Discriminator(args.input_nc*2, attention=args.attention, patch_gan=False), init_func)
-            nets.D_B = self.define_network(Discriminator(args.input_nc*2, attention=args.attention, patch_gan=False), init_func)                   
-        else:
-            nets.D_A = self.define_network(Discriminator_bang(args.input_nc*2, attention=args.attention), init_func)
-            nets.D_B = self.define_network(Discriminator_bang(args.input_nc*2, attention=args.attention), init_func)                   
+        nets.D_A = self.define_network(NLayerDiscriminatorSpec(args.input_nc*2), init_func)
+        nets.D_B = self.define_network(NLayerDiscriminatorSpec(args.input_nc*2), init_func)       
 
         optims = Munch()
         optims.G = torch.optim.Adam(itertools.chain(nets.G_A2B.parameters(), nets.G_B2A.parameters()), lr=args.lr_G, betas=(args.beta1, args.beta2))
