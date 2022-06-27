@@ -4,23 +4,23 @@ import pandas as pd
 def get_config():
     parser = argparse.ArgumentParser()
     ## Dataset 
-    parser.add_argument('--data_root', type=str, required=False)
+    parser.add_argument('-d', '--data_root', type=str, required=False)
     parser.add_argument('--img_size', type=int, default=224)
-    parser.add_argument('--a_data', type=str, default='trainA')
-    parser.add_argument('--b_data', type=str, default='trainB')
-    parser.add_argument('--capacity', type=int, default=float("inf"))
+    parser.add_argument('-a', '--a_data', type=str, default='trainA')
+    parser.add_argument('-b', '--b_data', type=str, default='trainB')
+    parser.add_argument('-c', '--capacity', type=int, default=1000)
     parser.add_argument('--unaligned', action='store_true')    
-    parser.add_argument('--in_memory', action='store_true')        
+    parser.add_argument('-m', '--in_memory', action='store_true')        
     parser.add_argument('--data_swap', action='store_true')
 
     ## Dataset & Train
     parser.add_argument('--start_epoch', type=int, default=1)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('-e', '--epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=1)
 
     ## Logging
-    parser.add_argument('--save_name', type=str, required=False)
-    parser.add_argument('--start_save', type=int, default=30)
+    parser.add_argument('-s', '--save_name', type=str, required=False)
+    parser.add_argument('--start_save', type=int, default=40)
     parser.add_argument('--n_sample', type=int, default=5)
     parser.add_argument('--interval_test', type=int, default=5)
     parser.add_argument('--interval_save', type=int, default=5)
@@ -36,7 +36,7 @@ def get_config():
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--buffer_size', type=int, default=50)
     parser.add_argument('--gan_loss', type=str, default='lsgan')
-    parser.add_argument('--load_name', type=str)
+    parser.add_argument('-l', '--load_name', type=str)
     parser.add_argument('--warmup_steps', type=int, default=6)
     parser.add_argument('--g_downsampling', type=int, default=3)
     parser.add_argument('--g_bottleneck', type=int, default=6)
@@ -47,14 +47,16 @@ def get_config():
     parser.add_argument('--lambda_idt', type=int, default=5)
     parser.add_argument('--lambda_background', type=int, default=10)
 
-    parser.add_argument('--test', action='store_true')
+    parser.add_argument('-t', '--test', action='store_true')
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = get_config()
     args_dict = vars(args)
-    print(args_dict)
 
-    df_args = pd.DataFrame.from_dict(args_dict, orient='index', columns=['option', 'value'])
-    df_args.to_csv('test.csv', index=True)
+    print(args.a)
+    #print(args_dict)
+
+    #df_args = pd.DataFrame.from_dict(args_dict, orient='index', columns=['option', 'value'])
+    #df_args.to_csv('test.csv', index=True)
 

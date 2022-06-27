@@ -15,7 +15,6 @@ class ImageDataset(Dataset):
         self.transform = albumentations.Compose([
             albumentations.Resize(width=int(args.img_size*1.12), height=int(args.img_size*1.12)),
             albumentations.RandomCrop(width=args.img_size, height=args.img_size, p=0.6),
-            #albumentations.Resize(width=int(args.img_size), height=int(args.img_size)),
             albumentations.HorizontalFlip(p=0.5),
         ])
 
@@ -26,14 +25,12 @@ class ImageDataset(Dataset):
         ])
 
         self.args = args
-        if args.data_swap:
-            args.a_data, args.b_data = args.b_data, args.a_data            
 
-        self.files_A = sorted(glob.glob(os.path.join(args.data_root, '%s' % args.a_data) + '/*.*'))
-        self.files_B = sorted(glob.glob(os.path.join(args.data_root, '%s' % args.b_data) + '/*.*'))
+        self.files_A = sorted(glob.glob(args.path_A + '/*.*'))
+        self.files_B = sorted(glob.glob(args.path_B + '/*.*'))
         
-        self.files_A_mask = sorted(glob.glob(os.path.join(args.data_root, '%s_mask' % args.a_data) + '/*.*'))
-        self.files_B_mask = sorted(glob.glob(os.path.join(args.data_root, '%s_mask' % args.b_data) + '/*.*'))        
+        self.files_A_mask = sorted(glob.glob(args.path_A + '_mask/*.*'))
+        self.files_B_mask = sorted(glob.glob(args.path_B + '_mask/*.*'))        
 
         if self.args.capacity:
             args.capacity_A = min(len(self.files_A), args.capacity)

@@ -10,6 +10,7 @@ __pycache__/
 ## My
 *.txt
 checkpoints/
+notebook/
 
 # C extensions
 *.so

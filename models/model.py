@@ -4,43 +4,17 @@ import random
 from munch import Munch
 import itertools
 
-from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 
 from .utils import init_func, WarmupConstantSchedule
 #from .networks import *
 from .networks_bang import *
 
-class ReplayBuffer():
-    def __init__(self, max_size=50):
-        assert (max_size > 0), 'Empty buffer or trying to create a black hole. Be careful.'
-        self.max_size = max_size
-        self.data = []
-
-    def push_and_pop(self, data):
-        to_return = []
-        for element in data.data:
-            element = torch.unsqueeze(element, 0)
-            if len(self.data) < self.max_size:
-                self.data.append(element)
-                to_return.append(element)
-            else:
-                if random.uniform(0,1) > 0.5:
-                    i = random.randint(0, self.max_size-1)
-                    to_return.append(self.data[i].clone())
-                    self.data[i] = element
-                else:
-                    to_return.append(element)
-        return Variable(torch.cat(to_return))
-
 class CycleGAN:
     #def __init__(self, input_nc, output_nc, lr=0.0002, log_dir=None, lambda_cycle=10, lambda_idt=5, lambda_background=10, attention=False):        
-    def __init__(self, args, paths):
+    def __init__(self, args, device):
         self.args = args
-        self.paths = paths
-
-        self.train_iter = 0
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = device
         
         self.nets, self.optims, self.scheduler, self.buffer = self.build_model(args)
 
@@ -50,26 +24,13 @@ class CycleGAN:
         self.criterion_Idt = torch.nn.L1Loss()
         self.criterion_Background = torch.nn.L1Loss()
 
-        self.logger = None
-        if args.tensorboard:
-            self.logger = SummaryWriter(log_dir=paths.log_dir)
-
-        if args.load_name:
-            assert (args.save_name is not None), 'you must enter the save_name !!!'
-            print('{} Model was Loaded'.format(args.load_name))
-            self.load()
-
-            load_epoch = args.load_name.split('_')[0]
-            args.start_epoch = 1 if (load_epoch == 'latest') else int(load_epoch)
-            args.epochs = args.epochs if (args.start_epoch == 1) else (args.epochs - 1)
-
     def build_model(self, args):
         nets = Munch()
         #nets.G_A2B = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_bottleneck=args.g_bottleneck, n_downsampling=args.g_downsampling, affine=False, last_tanh=args.g_tanh), init_func)
         #nets.G_B2A = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_bottleneck=args.g_bottleneck, n_downsampling=args.g_downsampling, affine=False, last_tanh=args.g_tanh), init_func)
 
-        nets.G_A2B = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_downsampling=args.g_downsampling, n_blocks=args.g_bottleneck), init_func)
-        nets.G_B2A = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_downsampling=args.g_downsampling, n_blocks=args.g_bottleneck), init_func)
+        nets.G_A2B = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_downsampling=args.g_downsampling, n_blocks=args.g_bottleneck, output_tanh=args.g_tanh), init_func)
+        nets.G_B2A = self.define_network(ResnetGenerator_bang(args.input_nc, args.output_nc, attention=args.attention, n_downsampling=args.g_downsampling, n_blocks=args.g_bottleneck, output_tanh=args.g_tanh), init_func)
         
         nets.D_A = self.define_network(NLayerDiscriminatorSpec(args.input_nc*2), init_func)
         nets.D_B = self.define_network(NLayerDiscriminatorSpec(args.input_nc*2), init_func)       
@@ -131,8 +92,6 @@ class CycleGAN:
         self.backward_D()
         self.optims.D.step()  # update D_A and D_B's weights        
 
-        self.train_iter += 1
-
     def logging(self):
         logs = {}
         logs['D/loss'] = self.loss_D.item()
@@ -151,9 +110,6 @@ class CycleGAN:
         logs['LR/lr_G'] = g_lr
         logs['LR/lr_D'] = d_lr
 
-        if self.logger:
-            for tag, value in logs.items():
-                self.logger.add_scalar(tag, value, self.train_iter)
         return logs
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -223,21 +179,114 @@ class CycleGAN:
         for name, model in self.nets.items():
             model.eval()
 
-    def save(self, epoch=0):
+    def save(self, path, epoch=0):
         folder_name = str(epoch) if epoch else 'latest'
         
-        save_folder = '{}/{}_model'.format(self.paths.trained, folder_name)
+        save_folder = '{}/{}_model'.format(path, folder_name)
         os.makedirs(save_folder, exist_ok=True)
 
         for name, model in self.nets.items():
             torch.save(model.state_dict(), '{}/{}.pth'.format(save_folder, name))
 
-    def load(self):
-        save_folder = '{}/{}'.format(self.paths.trained, self.args.load_name)
-        #self.train_iter = 0
+    def load(self, path):
+        save_folder = '{}/{}'.format(path, self.args.load_name)
 
         for name, model in self.nets.items():
             model.load_state_dict(torch.load('{}/{}.pth'.format(save_folder, name)))
+
+    def forward_visual(self):
+        return [self.real_A, self.fake_B, self.real_B, self.fake_A]
+
+
+class GANLoss(nn.Module):
+    """Define different GAN objectives.
+
+    The GANLoss class abstracts away the need to create the target label tensor
+    that has the same size as the input.
+    """
+
+    def __init__(self, gan_mode='lsgan', target_real_label=1.0, target_fake_label=0.0):
+        """ Initialize the GANLoss class.
+
+        Parameters:
+            gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
+            target_real_label (bool) - - label for a real image
+            target_fake_label (bool) - - label of a fake image
+
+        Note: Do not use sigmoid as the last layer of Discriminator.
+        LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
+        """
+        super(GANLoss, self).__init__()
+        self.register_buffer('real_label', torch.tensor(target_real_label))
+        self.register_buffer('fake_label', torch.tensor(target_fake_label))
+        self.gan_mode = gan_mode
+        if gan_mode == 'lsgan':
+            self.loss = nn.MSELoss()
+        elif gan_mode == 'vanilla':
+            self.loss = nn.BCEWithLogitsLoss()
+        elif gan_mode in ['wgangp']:
+            self.loss = None
+        else:
+            raise NotImplementedError('gan mode %s not implemented' % gan_mode)
+
+    def get_target_tensor(self, prediction, target_is_real):
+        """Create label tensors with the same size as the input.
+
+        Parameters:
+            prediction (tensor) - - tpyically the prediction from a discriminator
+            target_is_real (bool) - - if the ground truth label is for real images or fake images
+
+        Returns:
+            A label tensor filled with ground truth label, and with the size of the input
+        """
+
+        if target_is_real:
+            target_tensor = self.real_label
+        else:
+            target_tensor = self.fake_label
+        return target_tensor.expand_as(prediction)
+
+    def __call__(self, prediction, target_is_real):
+        """Calculate loss given Discriminator's output and grount truth labels.
+
+        Parameters:
+            prediction (tensor) - - tpyically the prediction output from a discriminator
+            target_is_real (bool) - - if the ground truth label is for real images or fake images
+
+        Returns:
+            the calculated loss.
+        """
+        if self.gan_mode in ['lsgan', 'vanilla']:
+            target_tensor = self.get_target_tensor(prediction, target_is_real)
+            loss = self.loss(prediction, target_tensor)
+        elif self.gan_mode == 'wgangp':
+            if target_is_real:
+                loss = -prediction.mean()
+            else:
+                loss = prediction.mean()
+        return loss
+
+class ReplayBuffer():
+    def __init__(self, max_size=50):
+        assert (max_size > 0), 'Empty buffer or trying to create a black hole. Be careful.'
+        self.max_size = max_size
+        self.data = []
+
+    def push_and_pop(self, data):
+        to_return = []
+        for element in data.data:
+            element = torch.unsqueeze(element, 0)
+            if len(self.data) < self.max_size:
+                self.data.append(element)
+                to_return.append(element)
+            else:
+                if random.uniform(0,1) > 0.5:
+                    i = random.randint(0, self.max_size-1)
+                    to_return.append(self.data[i].clone())
+                    self.data[i] = element
+                else:
+                    to_return.append(element)
+        return Variable(torch.cat(to_return))
 
         
         
