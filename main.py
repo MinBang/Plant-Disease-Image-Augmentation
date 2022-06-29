@@ -160,10 +160,13 @@ class PDGAN_Solver:
         if args.load_name:
             #print('Load args.txt')
             load_name = args.load_name
+            test = args.test
+
             with open(args_name, 'r') as f:
                 self.args.__dict__ = json.load(f)
 
             self.args.load_name = load_name
+            self.args.test = test
         else:
             with open(args_name, 'w') as f:
                 json.dump(args.__dict__, f, indent=2)
