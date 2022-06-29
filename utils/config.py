@@ -1,5 +1,7 @@
 import argparse
 import pandas as pd
+import json
+
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -48,15 +50,37 @@ def get_config():
     parser.add_argument('--lambda_background', type=int, default=10)
 
     parser.add_argument('-t', '--test', action='store_true')
+
     return parser.parse_args()
+
+def read_csv(csvfile):
+    print('read_csv(): type(csvfile)) = {}'.format(csvfile))
+    print('')
+
+    foo_df = pd.read_csv(csvfile)
+
+    return foo_df
 
 if __name__ == '__main__':
     args = get_config()
-    args_dict = vars(args)
+    #args_dict = vars(args)
 
-    print(args.a)
+    #with open('commandline_args.txt', 'w') as f:
+        #json.dump(args.__dict__, f, indent=2)
+
+
+    #with open('commandline_args.txt', 'r') as f:
+    #    args.__dict__ = json.load(f)
+
+    #with open('commandline_args2.txt', 'w') as f:
+    #    json.dump(args.__dict__, f, indent=2)
+
+
+    #print(type(args_dict['lr_G']))
     #print(args_dict)
 
-    #df_args = pd.DataFrame.from_dict(args_dict, orient='index', columns=['option', 'value'])
+    #df_args = pd.DataFrame.from_dict(args_dict, orient='index', columns=['value'])
+    #print(df_args.head())
+    #print(df_args.info())
     #df_args.to_csv('test.csv', index=True)
 

@@ -16,8 +16,9 @@ import glob
 class PDGAN_Solver:
     def __init__(self, args):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.pass_k = ['load_name', 'data_root', 'a_data', 'b_data', 'tensorboard', 'in_memory']
+        #self.pass_k = ['load_name', 'data_root', 'a_data', 'b_data', 'tensorboard', 'in_memory']
 
+        self.test_mode = args.test
         self.args = self.rectify_args(args)
         self.paths = get_paths(self.args)
         self.train_iter = 0
@@ -41,10 +42,14 @@ class PDGAN_Solver:
         self.imgs = []
 
     def run(self):
-        if self.args.test:
+        if self.test_mode:
+            print(args.save_name, args.load_name)
             assert (args.save_name is not None) and (args.load_name is not None), 'you must enter the save_name and load_name'
+            #print(args.load_name)
+            print('\n ==Test Step== ')
             self.test()
         else:
+            print('\n ==Train Step== ')
             self.train()
 
     def train_epoch(self):
@@ -113,6 +118,8 @@ class PDGAN_Solver:
         if args.data_swap:
             args.a_data, args.b_data = args.b_data, args.a_data            
 
+        print(args.data_root)
+
         paths = glob.glob(args.data_root + '/*')
         paths = list(filter(lambda x: 'mask' not in x, paths))
 
@@ -134,6 +141,7 @@ class PDGAN_Solver:
         return args
 
     def write_options(self):
+        '''
         if args.load_name:
             df = pd.read_csv('{}/args.csv'.format(self.path.save_base))
 
@@ -145,6 +153,20 @@ class PDGAN_Solver:
             args_dict = vars(self.args)
             df_args = pd.DataFrame.from_dict(args_dict, orient='index', columns=['value'])
             df_args.to_csv('{}/args.csv'.format(self.paths.save_base), index=True)
+        '''
+
+        args_name = '{}/args.txt'.format(self.paths.save_base)
+
+        if args.load_name:
+            #print('Load args.txt')
+            load_name = args.load_name
+            with open(args_name, 'r') as f:
+                self.args.__dict__ = json.load(f)
+
+            self.args.load_name = load_name
+        else:
+            with open(args_name, 'w') as f:
+                json.dump(args.__dict__, f, indent=2)
 
     def model_build(self):
         if self.args.load_name:
@@ -159,20 +181,18 @@ class PDGAN_Solver:
 def dummy_args(args):
     args.capacity = 150
     #args.data_root = '../../stargan/dataset/Potato_mask'
-    args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/Apple_Healthy2Rust'
-    args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/leaf_normal'
-    args.data_root = '../datasets/Potato'
-    args.a_data = 'Early'
-    args.b_data = 'healthy'
-
-    args.n_sample = 5
-    args.img_size = 224
-    args.g_downsampling = 3
-    args.g_bottleneck = 6
+    #args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/Apple_Healthy2Rust'
+    #args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/leaf_normal'
+    args.data_root = 'datasets/Potato'
+    #args.a_data = 'Early'
+    #args.b_data = 'healthy'
+    args.save_name = 'Test'
+    args.load_name = 'latest_model'
+    args.test = True
     args.in_memory = True
 
     #args.save_name = 'test2'
-    args.d_type = 'my'
+    #args.d_type = 'my'
     #args.g_tanh = False
 
     #args.load_name = '3_model'
@@ -180,6 +200,6 @@ def dummy_args(args):
 if __name__ == '__main__':
     args = get_config()
     #dummy_args(args)
-    solver = PDGAN_Solver(args)
 
+    solver = PDGAN_Solver(args)
     solver.run()
