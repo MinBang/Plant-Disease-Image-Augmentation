@@ -12,6 +12,7 @@ __pycache__/
 checkpoints/
 notebook/
 datasets/
+.gitconfig
 # C extensions
 *.so
 

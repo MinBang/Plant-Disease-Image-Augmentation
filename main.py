@@ -131,8 +131,8 @@ class PDGAN_Solver:
         assert len(paths) != 0, 'Please check the data_root path.'
         print(paths)
 
-        path_A = list(filter(lambda x: args.a_data in x, paths))
-        path_B = list(filter(lambda x: args.b_data in x, paths))
+        path_A = list(filter(lambda x: args.a_data.upper() in x.upper(), paths))
+        path_B = list(filter(lambda x: args.b_data.upper() in x.upper(), paths))
         assert (len(path_A) == 1) and (len(path_B) == 1), 'Please check for possible duplicate folder names in data_root'
 
         args.path_A, args.path_B = path_A[0], path_B[0]
@@ -166,18 +166,18 @@ class PDGAN_Solver:
             self.args.epochs = self.args.epochs if (self.args.start_epoch == 1) else (self.args.epochs - 1)
 
 def dummy_args(args):
-    args.data_root = 'datasets/Potato_mini'
-    #args.a_data = 'Early'
-    #args.b_data = 'healthy'
+    args.data_root = 'datasets/Potato_leaf'
+    args.a_data = 'early'
+    args.b_data = 'healthy'
     
     #args.save_name = 'Att_GAN4'
     #args.load_name = 'latest_model'
-    args.save = False
-    args.test = False
+    #args.save = False
+    #args.test = False
 
     #args.save_name = 'test'
     #args.save_name = 'Potato___Early_blight_2_Potato___healthy'
-    args.load_name = 'latest_model'
+    #args.load_name = 'latest_model'
 
     #args.in_memory = True
     
@@ -194,7 +194,7 @@ def dummy_args(args):
 
 if __name__ == '__main__':
     args = get_config()
-    #dummy_args(args)
+    dummy_args(args)
 
     solver = PDGAN_Solver(args)
     solver.run()
