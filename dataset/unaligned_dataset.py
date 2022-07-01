@@ -13,8 +13,8 @@ class ImageDataset(Dataset):
     #def __init__(self, args.data_root, unaligned=False, A='trainA', B='trainB', args.capacity=None, swap=False, isTest=False, args.img_size=256, args.in_memory=False):
     def __init__(self, args):
         self.transform = albumentations.Compose([
-            albumentations.Resize(width=int(args.img_size*1.12), height=int(args.img_size*1.12)),
-            albumentations.RandomCrop(width=args.img_size, height=args.img_size, p=0.6),
+            albumentations.Resize(width=args.img_size, height=args.img_size),
+            albumentations.RandomCrop(width=int(args.img_size*0.9), height=int(args.img_size*0.9), p=0.6),
             albumentations.HorizontalFlip(p=0.5),
         ])
 

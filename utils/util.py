@@ -22,16 +22,18 @@ def get_paths(args):
 
     for k, v in paths.items():
         os.makedirs(v, exist_ok=True)
+
+    paths.args = '{}/{}'.format(paths.save_base, 'args.txt')
     
     return paths
 
 def del_extension(filename):
     return filename[0].split('.')[0]
 
-def save_results(imgs, path, epoch):
+def save_results(imgs, path, epoch, nrow):
     imgs = torch.cat(imgs, dim=0).cpu()
     imgs = imgs * 0.5 + 0.5
-    imgs = make_grid(imgs, nrow=4)
+    imgs = make_grid(imgs, nrow=nrow)
     save_image(imgs, '{}/{}_Epoch.png'.format(path, epoch))
 
 def print_options(args, paths):

@@ -1,4 +1,5 @@
 import torch 
+from torch import nn
 
 def init_func(m, init_type='normal', init_gain=0.02):  # define the initialization function
     classname = m.__class__.__name__
@@ -8,7 +9,11 @@ def init_func(m, init_type='normal', init_gain=0.02):  # define the initializati
         elif init_type == 'xavier':
              torch.nn.init.xavier_normal_(m.weight.data, gain=init_gain)
         elif init_type == 'kaiming':
-             torch.nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+             #$torch.nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
         elif init_type == 'orthogonal':
              torch.nn.init.orthogonal_(m.weight.data, gain=init_gain)
         else:

@@ -12,11 +12,13 @@ from utils import *
 from torch.utils.tensorboard import SummaryWriter
 from torchinfo import summary
 import glob
+from pprint import pprint
 
 class PDGAN_Solver:
     def __init__(self, args):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        #self.pass_k = ['load_name', 'data_root', 'a_data', 'b_data', 'tensorboard', 'in_memory']
+        self.model_params = ['img_size', 'input_nc', 'output_nc', 'attention', 'lr_G', 'lr_D', 'beta1', 'beta2', 'buffer_size', 'gan_loss', 'g_downsampling', 
+                    'g_bottleneck', 'g_tanh', 'd_type', 'reduction_ratio', 'lambda_cycle', 'lambda_idt', 'lambda_background', 'test']
 
         self.test_mode = args.test
         self.args = self.rectify_args(args)
@@ -25,7 +27,7 @@ class PDGAN_Solver:
 
         self.write_options()
         print(' Save Folder: {}'.format(self.args.save_name))
-        print(' [ {} <---> {} ]\n'.format(self.args.a_data, self.args.b_data))
+        print(' Mapping: [ {} <---> {} ]\n'.format(self.args.a_data, self.args.b_data))
 
         self.dataset = ImageDataset(self.args)
         self.dataloader = DataLoader(self.dataset, batch_size=self.args.batch_size, shuffle=True)
@@ -42,17 +44,18 @@ class PDGAN_Solver:
         self.imgs = []
 
     def run(self):
+        pprint(self.args.__dict__, indent=2)
+
         if self.test_mode:
             print(args.save_name, args.load_name)
-            assert (args.save_name is not None) and (args.load_name is not None), 'you must enter the save_name and load_name'
-            #print(args.load_name)
-            print('\n ==Test Step== ')
+            print(' ==Test Step== ')
             self.test()
         else:
-            print('\n ==Train Step== ')
+            print(' ==Train Step== ')
+            print()
             self.train()
 
-    def train_epoch(self):
+    def __train_epoch(self):
         self.model.train()
         self.batches = []
 
@@ -70,26 +73,29 @@ class PDGAN_Solver:
             pbar.set_description("Loss_D: {:.4f} || Loss_G: {:.4f} || Lr: ({:.6f})  ".format(logs['D/loss'], logs['G/loss_gan'], logs['LR/lr_D']))
         self.model.update_lr()
 
-    def test_sample(self, epoch):
+    def __test_sample(self, epoch):
         self.model.eval()
         self.imgs = []
+        nrow = len(self.model.forward_visual())
 
         for i, batch in enumerate(self.batches):
-            self.model.set_input(batch)
-            self.imgs.append(torch.cat(self.model.forward_visual(), dim=0))        
-        save_results(self.imgs, self.paths.epoch_result, epoch)
+            with torch.set_grad_enabled(False):
+                self.model.set_input(batch)
+            self.imgs.append(torch.cat(self.model.forward_visual(), dim=0))
+        save_results(self.imgs, self.paths.epoch_result, epoch, nrow)
 
     def train(self):
         for epoch in tqdm(range(self.args.start_epoch, self.args.epochs+1), desc='Epoch Loop'):
-            self.train_epoch()
+            self.__train_epoch()
 
             if args.save_name:
                 if ((epoch % args.interval_test) == 0) or (epoch==1):
-                    self.test_sample(epoch)
+                    self.__test_sample(epoch)
 
-                if (epoch % args.interval_save == 0) and (args.start_save <= epoch):
-                    self.model.save(self.paths.trained, epoch)
-                self.model.save(self.paths.trained)
+                if args.save:
+                    if (epoch % args.interval_save == 0) and (args.start_save <= epoch):
+                        self.model.save(self.paths.trained, epoch)
+                    self.model.save(self.paths.trained)
 
     def test(self):
         self.model.eval()
@@ -116,8 +122,7 @@ class PDGAN_Solver:
     
     def rectify_args(self, args):
         if args.data_swap:
-            args.a_data, args.b_data = args.b_data, args.a_data            
-
+            args.a_data, args.b_data = args.b_data, args.a_data
         print(args.data_root)
 
         paths = glob.glob(args.data_root + '/*')
@@ -141,34 +146,14 @@ class PDGAN_Solver:
         return args
 
     def write_options(self):
-        '''
         if args.load_name:
-            df = pd.read_csv('{}/args.csv'.format(self.path.save_base))
+            load_params = json.load(open(self.paths.args, 'r'))
+            for k in self.model_params:
+                print('{}: {}'.format(k, load_params[k]))
+                args.__setattr__(k, load_params[k])
 
-            for k, v in df.values:
-                if k in self.pass_k:
-                    continue
-                args.__setattr__(k, v)
-        else:
-            args_dict = vars(self.args)
-            df_args = pd.DataFrame.from_dict(args_dict, orient='index', columns=['value'])
-            df_args.to_csv('{}/args.csv'.format(self.paths.save_base), index=True)
-        '''
-
-        args_name = '{}/args.txt'.format(self.paths.save_base)
-
-        if args.load_name:
-            #print('Load args.txt')
-            load_name = args.load_name
-            test = args.test
-
-            with open(args_name, 'r') as f:
-                self.args.__dict__ = json.load(f)
-
-            self.args.load_name = load_name
-            self.args.test = test
-        else:
-            with open(args_name, 'w') as f:
+        if not args.test:
+            with open(self.paths.args, 'w') as f:
                 json.dump(args.__dict__, f, indent=2)
 
     def model_build(self):
@@ -180,19 +165,26 @@ class PDGAN_Solver:
             self.args.start_epoch = 1 if (load_epoch == 'latest') else int(load_epoch)
             self.args.epochs = self.args.epochs if (self.args.start_epoch == 1) else (self.args.epochs - 1)
 
-
 def dummy_args(args):
-    args.capacity = 150
-    #args.data_root = '../../stargan/dataset/Potato_mask'
-    #args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/Apple_Healthy2Rust'
-    #args.data_root = 'C:/Users/admin/Desktop/AttentionGAN/datasets/leaf_normal'
-    args.data_root = 'datasets/Potato'
+    args.data_root = 'datasets/Potato_mini'
     #args.a_data = 'Early'
     #args.b_data = 'healthy'
-    args.save_name = 'Test'
+    
+    #args.save_name = 'Att_GAN4'
+    #args.load_name = 'latest_model'
+    args.save = False
+    args.test = False
+
+    #args.save_name = 'test'
+    #args.save_name = 'Potato___Early_blight_2_Potato___healthy'
     args.load_name = 'latest_model'
-    args.test = True
-    args.in_memory = True
+
+    #args.in_memory = True
+    
+    #args.n_downsampling = 4
+    #args.n_sample = 5
+    #args.reduction_ratio = 16
+    #args.beta1 = 0.5
 
     #args.save_name = 'test2'
     #args.d_type = 'my'
