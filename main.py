@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from dataset import ImageDataset
 
-from models import CycleGAN
+from models import CycleGAN, PlantDiseaseGAN
 from utils import *
 
 from torch.utils.tensorboard import SummaryWriter
@@ -18,7 +18,7 @@ class PDGAN_Solver:
     def __init__(self, args):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model_params = ['img_size', 'input_nc', 'output_nc', 'attention', 'lr_G', 'lr_D', 'beta1', 'beta2', 'buffer_size', 'gan_loss', 'g_downsampling', 
-                    'g_bottleneck', 'g_tanh', 'd_type', 'reduction_ratio', 'lambda_cycle', 'lambda_idt', 'lambda_background', 'test']
+                    'g_bottleneck', 'g_tanh', 'd_type', 'reduction_ratio', 'lambda_cycle', 'lambda_idt', 'lambda_background']
 
         self.test_mode = args.test
         self.args = self.rectify_args(args)
@@ -33,6 +33,7 @@ class PDGAN_Solver:
         self.dataloader = DataLoader(self.dataset, batch_size=self.args.batch_size, shuffle=True)
         #print(len(self.dataset), len(self.dataloader))
 
+        #self.model = PlantDiseaseGAN(self.args, self.device)
         self.model = CycleGAN(self.args, self.device)
         self.model_build()
 
@@ -149,7 +150,7 @@ class PDGAN_Solver:
         if args.load_name:
             load_params = json.load(open(self.paths.args, 'r'))
             for k in self.model_params:
-                print('{}: {}'.format(k, load_params[k]))
+                #print('{}: {}'.format(k, load_params[k]))
                 args.__setattr__(k, load_params[k])
 
         if not args.test:
@@ -166,15 +167,20 @@ class PDGAN_Solver:
             self.args.epochs = self.args.epochs if (self.args.start_epoch == 1) else (self.args.epochs - 1)
 
 def dummy_args(args):
-    args.data_root = 'datasets/Potato_leaf'
-    args.a_data = 'early'
+    args.data_root = 'datasets/Grape'
+    args.a_data = 'Esca'
     args.b_data = 'healthy'
     
     #args.save_name = 'Att_GAN4'
     #args.load_name = 'latest_model'
-    #args.save = False
-    #args.test = False
+    args.capacity = 500
+    args.save = True
+    args.epochs = 100
+    args.save_name = 'CycleGAN_Esca2healthy2'
+    #args.load_name = 'latest_model'
+    args.in_memory = True
 
+    #args.test = True
     #args.save_name = 'test'
     #args.save_name = 'Potato___Early_blight_2_Potato___healthy'
     #args.load_name = 'latest_model'

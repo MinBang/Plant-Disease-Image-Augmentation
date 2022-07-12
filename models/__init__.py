@@ -1,1 +1,1 @@
-from .model import CycleGAN
+from .model import CycleGAN, PlantDiseaseGAN

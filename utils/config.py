@@ -43,7 +43,8 @@ def get_config():
     parser.add_argument('--g_downsampling', type=int, default=3)
     parser.add_argument('--g_bottleneck', type=int, default=6)
     parser.add_argument('--g_tanh', action='store_true')
-    parser.add_argument('--d_type', type=str, default='my')
+    parser.add_argument('--g_type', type=str, default='pdgan', choices=['pdgan', 'cyclegan'])
+    parser.add_argument('--d_type', type=str, default='pdgan', choices=['pdgan', 'cyclegan'])
     parser.add_argument('--reduction_ratio', type=int, default=16)
 
     parser.add_argument('--lambda_cycle', type=int, default=10)
